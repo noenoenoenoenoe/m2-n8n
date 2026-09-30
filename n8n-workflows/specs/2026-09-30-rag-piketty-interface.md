@@ -1,6 +1,6 @@
 # Spec | RAG Piketty : interface sur mesure
 
-> Statut : brouillon, à valider · Date : 2026-09-30
+> Statut : validée, construite · Date : 2026-09-30
 
 ## Contexte
 Le RAG Piketty fonctionne (voir `2026-09-30-rag-piketty.md`), mais le chat hébergé par n8n est générique. Le rendu du M2 a lieu demain (2026-10-01). L'interface sert à la fois à la démo devant le prof et au lien à rendre. On ne sait pas si le design est évalué. Objectif : une page sur mesure, dans une ambiance « livre », qui mette en valeur les citations.
@@ -47,7 +47,7 @@ Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le « Je ne 
 | Outil | Rôle | Accès |
 |---|---|---|
 | n8n Cloud, workflow `RAG Piketty` | Sert la page + le chat existant | ✅ |
-| Chat Trigger existant (`/webhook/<id>/chat`) | Répond aux questions (`action: sendMessage`, `sessionId`, `chatInput`) | ✅ |
+| Webhook `POST /webhook/rag-piketty-ask` (nœud « Question Page ») | Entrée de la page : `{ sessionId, chatInput }` → `{ output }`, branché sur le même Agent RAG. Chemin fixe : l'ID du chat hébergé change à chaque `n8ncli push` et ne peut pas être codé en dur | ✅ |
 | CDN (cdnjs / jsdelivr), Google Fonts | Rendu Markdown (marked + DOMPurify), polices | ✅ public |
 
 ## Contraintes opérationnelles
@@ -66,8 +66,9 @@ Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le « Je ne 
   - Options A (habiller le chat n8n) et B (widget `@n8n/chat`) : écartées au profit de l'interface sur mesure (C), à la demande de l'utilisateur.
 
 ## Hypothèses
-- Un webhook n8n peut renvoyer une page HTML qui s'affiche correctement dans le navigateur (en-tête `Content-Type: text/html`) (supposé).
-- Le Chat Trigger en mode public accepte les appels venant de cette page, sur le même domaine (supposé, à vérifier).
+- Un webhook n8n peut renvoyer une page HTML (vérifié : `text/html; charset=utf-8`, page identique à la source).
+- Source de la page : `interface/rag-piketty.html`, injectée dans le nœud « Servir Page » par `python3 interface/build.py` avant chaque push.
+- Le Chat Trigger hébergé change d'ID à chaque push (constaté 3 fois) : la page passe donc par son propre webhook à chemin fixe. La mémoire prend la session du déclencheur utilisé (page ou chat hébergé).
 - Le format des citations produit par l'agent, « … » (p. X), reste assez régulier pour être détecté par une expression régulière (constaté sur les réponses de test).
 
 ## Critères de réussite
@@ -81,4 +82,5 @@ Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le « Je ne 
 
 ## Points ouverts
 1. Le chat hébergé n8n actuel est gardé en secours. À supprimer après le rendu ?
-2. Le lien à rendre au prof est celui de la nouvelle page (`/webhook/rag-piketty`), à confirmer.
+2. Le lien à rendre au prof est celui de la nouvelle page (`https://noetroov.app.n8n.cloud/webhook/rag-piketty`), à confirmer.
+3. L'URL du chat hébergé de secours change à chaque push : la récupérer dans l'éditeur (nœud « Chat Livre ») avant la démo.

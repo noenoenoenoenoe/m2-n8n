@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Capital au XXIe siècle · RAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<style>
+  :root {
+    --paper: #f6f1e6;
+    --paper-deep: #efe7d6;
+    --card: #fffdf8;
+    --ink: #1f2330;
+    --ink-soft: #5b5f6b;
+    --navy: #14213d;
+    --accent: #7a1f2b;
+    --accent-soft: #f3e3e3;
+    --rule: #d9cfbb;
+    --serif-title: "Playfair Display", Georgia, serif;
+    --serif: "Source Serif 4", Georgia, serif;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 20% 0%, rgba(255,255,255,.6), transparent 60%);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+  header { padding: 48px 0 24px; text-align: center; border-bottom: 1px solid var(--rule); }
+  .eyebrow { font-family: var(--sans); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1 { font-family: var(--serif-title); font-weight: 700; font-size: clamp(30px, 6vw, 46px); line-height: 1.1; margin: 0; color: var(--navy); }
+  h1 em { font-weight: 500; }
+  .author { font-style: italic; color: var(--ink-soft); margin: 10px 0 0; }
+  .ornament { color: var(--accent); margin: 18px 0 6px; font-size: 18px; letter-spacing: .6em; }
+  .tagline { font-size: 17px; color: var(--ink-soft); margin: 0; }
+
+  main { flex: 1; padding: 28px 0 24px; }
+
+  .intro { text-align: center; }
+  .intro p { color: var(--ink-soft); margin: 0 0 18px; font-size: 16px; }
+  .suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .suggestion {
+    font: inherit; font-size: 16px; text-align: left; cursor: pointer;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: 4px; padding: 12px 14px; line-height: 1.4;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .suggestion:hover, .suggestion:focus-visible { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(20,33,61,.08); border-color: var(--accent); outline: none; }
+
+  .thread { display: flex; flex-direction: column; gap: 22px; }
+  .q {
+    align-self: flex-end; max-width: 85%;
+    background: var(--navy); color: #f6f1e6;
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    padding: 10px 14px; border-radius: 14px 14px 2px 14px;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .a {
+    background: var(--card); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 18px 20px; box-shadow: 0 1px 0 var(--paper-deep);
+    word-wrap: break-word; overflow-wrap: anywhere;
+  }
+  .a p { margin: 0 0 12px; }
+  .a p:last-child { margin-bottom: 0; }
+  .a ul, .a ol { padding-left: 22px; margin: 0 0 12px; }
+  .a li { margin-bottom: 6px; }
+  .a blockquote { margin: 12px 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--accent); color: var(--ink-soft); font-style: italic; }
+  .a strong { color: var(--navy); }
+  .a code { font-size: .9em; background: var(--paper-deep); padding: 1px 4px; border-radius: 3px; }
+
+  .sources { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule); }
+  .sources h3 { font-family: var(--sans); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px; font-weight: 600; }
+  .cards { display: grid; gap: 10px; }
+  .source {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 10px 12px;
+  }
+  .page {
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border-radius: 3px; padding: 3px 7px; white-space: nowrap;
+  }
+  .excerpt { font-style: italic; font-size: 15px; line-height: 1.5; color: var(--ink); }
+
+  .thinking { display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-style: italic; }
+  .dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+
+  .error { border-color: #d8a7a7; background: #fdf4f4; }
+  .error p { margin: 0 0 10px; }
+  .btn-link { font-family: var(--sans); font-size: 14px; background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+  .btn-link:hover { background: var(--accent-soft); }
+
+  .composer { position: sticky; bottom: 0; background: linear-gradient(to top, var(--paper) 70%, rgba(246,241,230,0)); padding: 18px 0 16px; }
+  form { display: flex; gap: 8px; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 6px; box-shadow: 0 6px 24px rgba(20,33,61,.08); }
+  form:focus-within { border-color: var(--navy); }
+  textarea {
+    flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent;
+    font-family: var(--serif); font-size: 17px; color: var(--ink); line-height: 1.5; padding: 8px 10px; max-height: 160px;
+  }
+  textarea::placeholder { color: #9a9486; font-style: italic; }
+  .send { font-family: var(--sans); font-weight: 600; font-size: 14px; border: 0; border-radius: 4px; background: var(--navy); color: #f6f1e6; padding: 0 16px; cursor: pointer; }
+  .send:disabled { opacity: .45; cursor: default; }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+  .reset { font: inherit; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+  footer { border-top: 1px solid var(--rule); padding: 14px 0 22px; text-align: center; font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+
+  @media (max-width: 520px) {
+    body { font-size: 17px; }
+    header { padding: 32px 0 18px; }
+    .q { max-width: 92%; }
+    .a { padding: 14px 14px; }
+    .meta span:first-child { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="eyebrow">Posez vos questions au livre</p>
+      <h1>Le Capital <em>au XXI<sup>e</sup> siècle</em></h1>
+      <p class="author">Thomas Piketty · Éditions du Seuil, 2013</p>
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <p class="tagline">Chaque réponse est tirée du texte du livre, avec les passages cités et leurs pages.</p>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="intro" id="intro">
+        <p>Pour commencer, choisissez une question ou écrivez la vôtre.</p>
+        <div class="suggestions">
+          <button class="suggestion" type="button">Résume la thèse r &gt; g</button>
+          <button class="suggestion" type="button">Qu'est-ce qu'une société de rentiers selon Piketty ?</button>
+          <button class="suggestion" type="button">Comment ont évolué les inégalités en France au XXe siècle ?</button>
+          <button class="suggestion" type="button">Que propose Piketty pour réduire les inégalités ?</button>
+        </div>
+      </section>
+      <section class="thread" id="thread" aria-live="polite"></section>
+    </div>
+  </main>
+
+  <div class="composer">
+    <div class="wrap">
+      <form id="form">
+        <textarea id="input" rows="1" placeholder="Votre question sur le livre…" aria-label="Votre question"></textarea>
+        <button class="send" id="send" type="submit">Envoyer</button>
+      </form>
+      <div class="meta">
+        <span>Entrée pour envoyer · Maj + Entrée pour aller à la ligne</span>
+        <button class="reset" id="reset" type="button">Nouvelle conversation</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">Projet M2 · RAG construit avec n8n, Google Gemini et Supabase</div>
+  </footer>
+
+<script>
+(function () {
+  var CHAT_PATH = '/webhook/rag-piketty-ask';
+  // Servie par n8n : même domaine. Ouverte ailleurs (test local) : URL complète de l'instance.
+  var CHAT_URL = (/\.n8n\.cloud$/.test(location.hostname) ? '' : 'https://noetroov.app.n8n.cloud') + CHAT_PATH;
+  var TIMEOUT_MS = 120000;
+  var SESSION_KEY = 'rag-piketty-session';
+
+  var thread = document.getElementById('thread');
+  var intro = document.getElementById('intro');
+  var form = document.getElementById('form');
+  var input = document.getElementById('input');
+  var send = document.getElementById('send');
+  var busy = false;
+
+  function newId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+  function getSession(forceNew) {
+    var id = null;
+    try { if (!forceNew) id = localStorage.getItem(SESSION_KEY); } catch (e) {}
+    if (!id) {
+      id = newId();
+      try { localStorage.setItem(SESSION_KEY, id); } catch (e) {}
+    }
+    return id;
+  }
+  var sessionId = getSession(false);
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Réponse en Markdown ; tout HTML écrit par le modèle est affiché comme du texte.
+  function renderMarkdown(text) {
+    var safeSource = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    if (window.marked && window.DOMPurify) {
+      return DOMPurify.sanitize(marked.parse(safeSource, { breaks: true }));
+    }
+    return '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
+  }
+
+  // Citations au format « extrait » (p. 12) ou (p. 12-13), éventuellement avec [...] ou un retour à la ligne.
+  function extractSources(text) {
+    var re = /«\s*([^»]{12,}?)\s*»[\s*_]*\(\s*p\.?\s*(\d+(?:\s*[-–]\s*\d+)?)\s*\)/g;
+    var seen = {}, out = [], m;
+    while ((m = re.exec(text)) !== null) {
+      var excerpt = m[1].replace(/\n\s*>\s?/g, ' ').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
+      var page = m[2].replace(/\s*[-–]\s*/, '-');
+      var key = page + '|' + excerpt;
+      if (!seen[key]) { seen[key] = true; out.push({ excerpt: excerpt, page: page }); }
+    }
+    return out;
+  }
+
+  function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+
+  function addQuestion(text) {
+    var el = document.createElement('div');
+    el.className = 'q';
+    el.textContent = text;
+    thread.appendChild(el);
+  }
+
+  function addThinking() {
+    var el = document.createElement('div');
+    el.className = 'a thinking';
+    el.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> Je feuillette le livre…';
+    thread.appendChild(el);
+    scrollDown();
+    return el;
+  }
+
+  function fillAnswer(el, text) {
+    el.className = 'a';
+    el.innerHTML = renderMarkdown(text);
+    var sources = extractSources(text);
+    if (sources.length) {
+      var box = document.createElement('div');
+      box.className = 'sources';
+      box.innerHTML = '<h3>Sources dans le livre</h3>';
+      var cards = document.createElement('div');
+      cards.className = 'cards';
+      sources.forEach(function (s) {
+        var c = document.createElement('div');
+        c.className = 'source';
+        var p = document.createElement('span');
+        p.className = 'page';
+        p.textContent = 'p. ' + s.page;
+        var ex = document.createElement('span');
+        ex.className = 'excerpt';
+        ex.textContent = '« ' + s.excerpt + ' »';
+        c.appendChild(p); c.appendChild(ex);
+        cards.appendChild(c);
+      });
+      box.appendChild(cards);
+      el.appendChild(box);
+    }
+  }
+
+  function fillError(el, question) {
+    el.className = 'a error';
+    el.innerHTML = '<p>Le livre ne répond pas pour l\'instant (serveur occupé ou quota atteint). Réessayez dans une minute.</p>';
+    var b = document.createElement('button');
+    b.className = 'btn-link';
+    b.type = 'button';
+    b.textContent = 'Réessayer';
+    b.addEventListener('click', function () {
+      if (busy) return;
+      el.remove();
+      ask(question, true);
+    });
+    el.appendChild(b);
+  }
+
+  function setBusy(v) {
+    busy = v;
+    send.disabled = v;
+    input.disabled = v;
+    Array.prototype.forEach.call(document.querySelectorAll('.suggestion'), function (b) { b.disabled = v; });
+  }
+
+  function ask(question, isRetry) {
+    question = String(question || '').trim();
+    if (!question || busy) return;
+    intro.style.display = 'none';
+    if (!isRetry) addQuestion(question);
+    var pending = addThinking();
+    setBusy(true);
+
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, TIMEOUT_MS);
+
+    fetch(CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sendMessage', sessionId: sessionId, chatInput: question }),
+      signal: ctrl ? ctrl.signal : undefined
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        var text = data && (data.output || data.text);
+        if (!text) throw new Error('Réponse vide');
+        fillAnswer(pending, text);
+      })
+      .catch(function () { fillError(pending, question); })
+      .then(function () {
+        clearTimeout(timer);
+        setBusy(false);
+        input.focus();
+        scrollDown();
+      });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = input.value;
+    input.value = '';
+    autosize();
+    ask(q, false);
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  });
+
+  function autosize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }
+  input.addEventListener('input', autosize);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.suggestion'), function (b) {
+    b.addEventListener('click', function () { ask(b.textContent, false); });
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    if (busy) return;
+    sessionId = getSession(true);
+    thread.innerHTML = '';
+    intro.style.display = '';
+    input.focus();
+  });
+})();
+</script>
+</body>
+</html>
