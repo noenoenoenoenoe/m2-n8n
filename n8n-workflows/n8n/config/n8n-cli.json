@@ -1,8 +1,8 @@
 {
   "env": "prod",
   "localDir": "n8n",
-  "projectId": "PROJECT_ID",
-  "projectName": "Personal",
+  "projectId": "owpGibRS72yRPgYT",
+  "projectName": "Noé Escoffier-Vincent <noetroov@gmail.com>",
   "references": [
     {
       "name": "Workflow Examples Ref",
