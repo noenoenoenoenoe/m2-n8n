@@ -1,6 +1,6 @@
 # Spec | RAG Piketty : améliorations inspirées du template « RAG expert doc n8n »
 
-> Statut : brouillon, à valider · Date : 2026-10-01
+> Statut : validée, construite · Date : 2026-10-01
 
 ## Contexte
 On a comparé notre RAG au template de Lucas Peyrin (importé sur n8n, `V4p2HJfzyvCKrDeb`). Trois points sont à reprendre avant le rendu du M2 :

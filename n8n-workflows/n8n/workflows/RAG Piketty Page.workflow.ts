@@ -1,7 +1,7 @@
 const page_Interface = trigger({
   type: 'n8n-nodes-base.webhook',
   version: 2.1,
-  config: { name: 'Page Interface', parameters: { httpMethod: 'GET', path: 'rag-piketty', responseMode: 'responseNode', options: {} }, webhookId: 'rag-piketty-page', notes: 'Interface sur mesure du RAG Piketty : GET /webhook/rag-piketty.', notesInFlow: true }
+  config: { name: 'GET /rag-piketty', parameters: { httpMethod: 'GET', path: 'rag-piketty', responseMode: 'responseNode', options: {} }, webhookId: 'rag-piketty-page', notes: 'Interface sur mesure du RAG Piketty : GET /webhook/rag-piketty.', notesInFlow: true }
 });
 
 const servir_Page = node({
@@ -13,6 +13,6 @@ const servir_Page = node({
 const wf = workflow('udkOL3lt2slsTFP3', 'RAG Piketty Page', { description: 'Sert la page de l\'interface du RAG Piketty. Séparé du workflow principal pour ne pas enregistrer chaque ouverture de page (saveDataSuccessExecution: none).', executionOrder: 'v1', saveDataSuccessExecution: 'none', errorWorkflow: 'qxiolQ3TqUKnBt4v' });
 
 export default wf
-  .add(sticky('# RAG Piketty : page de l\'interface\n\nSpec : `specs/2026-09-30-rag-piketty-interface.md`\n\nLa page appelle `POST /webhook/rag-piketty-ask`, dans le workflow « RAG Piketty ».\nPour modifier la page : éditer `interface/rag-piketty.html`, puis `python3 interface/build.py` et `n8ncli push`.', [], { name: 'Specs Sticky Note', color: 2, width: 420, height: 260, position: [-480, -60] }))
+  .add(sticky('# RAG Piketty : page de l\'interface\n\nSpec : `specs/2026-09-30-rag-piketty-interface.md`\n\n**Rôle** : sert la page HTML (`GET /webhook/rag-piketty`). La page envoie les questions à `POST /webhook/rag-piketty-ask`, dans le workflow « RAG Piketty ».\n\n**Pourquoi un workflow séparé** : chaque ouverture de page lance une exécution. Ici, elles ne sont pas enregistrées (`saveDataSuccessExecution: none`), pour ne pas encombrer l\'historique du RAG.\n\n**Bac à sable** : n8n sert la page avec une CSP `sandbox` sans `allow-same-origin`. L\'origine vaut donc `null` et `localStorage` est bloqué. La session est gardée dans l\'URL (`#s=…`), et l\'appel au webhook ne marche que grâce à `allowedOrigins: \'*\'`.\n\n**Modifier la page** : éditer `interface/rag-piketty.html`, puis `python3 interface/build.py` et `n8ncli push`.', [], { name: 'Specs Sticky Note', color: 2, width: 480, height: 520, position: [-560, -200] }))
   .add(page_Interface)
   .to(servir_Page)
