@@ -81,6 +81,9 @@
   .a blockquote { margin: 12px 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--accent); color: var(--ink-soft); font-style: italic; }
   .a strong { color: var(--navy); }
   .a code { font-size: .9em; background: var(--paper-deep); padding: 1px 4px; border-radius: 3px; }
+  .a pre { max-width: 100%; overflow-x: auto; background: var(--paper-deep); padding: 10px 12px; border-radius: 4px; }
+  .a pre code { padding: 0; background: none; }
+  .a table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 
   .sources { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule); }
   .sources h3 { font-family: var(--sans); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px; font-weight: 600; }
@@ -176,10 +179,10 @@
 <script>
 (function () {
   var CHAT_PATH = '/webhook/rag-piketty-ask';
-  // Servie par n8n : même domaine. Ouverte ailleurs (test local) : URL complète de l'instance.
-  var CHAT_URL = (/\.n8n\.cloud$/.test(location.hostname) ? '' : 'https://noetroov.app.n8n.cloud') + CHAT_PATH;
+  // n8n sert la page dans un bac à sable (CSP « sandbox » sans allow-same-origin) : l'origine vaut « null ».
+  // L'appel au webhook est donc cross-origin et dépend de allowedOrigins: '*' sur le nœud « Question Page ».
+  var CHAT_URL = 'https://noetroov.app.n8n.cloud' + CHAT_PATH;
   var TIMEOUT_MS = 120000;
-  var SESSION_KEY = 'rag-piketty-session';
 
   var thread = document.getElementById('thread');
   var intro = document.getElementById('intro');
@@ -192,13 +195,19 @@
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
   }
+  // localStorage est bloqué par le bac à sable : la session vit dans l'URL (#s=…),
+  // elle survit donc au rechargement de la page.
+  function readHashSession() {
+    var m = /(?:^#|&)s=([\w-]{8,64})/.exec(location.hash || '');
+    return m ? m[1] : null;
+  }
+  function writeHashSession(id) {
+    try { history.replaceState(null, '', '#s=' + id); }
+    catch (e) { try { location.hash = 's=' + id; } catch (e2) {} }
+  }
   function getSession(forceNew) {
-    var id = null;
-    try { if (!forceNew) id = localStorage.getItem(SESSION_KEY); } catch (e) {}
-    if (!id) {
-      id = newId();
-      try { localStorage.setItem(SESSION_KEY, id); } catch (e) {}
-    }
+    var id = forceNew ? null : readHashSession();
+    if (!id) { id = newId(); writeHashSession(id); }
     return id;
   }
   var sessionId = getSession(false);
@@ -207,24 +216,66 @@
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  // Réponse en Markdown ; tout HTML écrit par le modèle est affiché comme du texte.
-  function renderMarkdown(text) {
-    var safeSource = String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    if (window.marked && window.DOMPurify) {
-      return DOMPurify.sanitize(marked.parse(safeSource, { breaks: true }));
-    }
-    return '<p>' + escapeHtml(text).replace(/\n/g, '<br>') + '</p>';
+  // Formules écrites en LaTeX par le modèle ($r > g$, \(r > g\)) : on garde le texte, sans les délimiteurs.
+  function stripLatex(text) {
+    return String(text)
+      .replace(/\$\$([^$]{1,200})\$\$/g, '$1')
+      .replace(/\$([^$\n]{1,80})\$/g, '$1')
+      .replace(/\\\(([^)]{1,80})\\\)/g, '$1');
   }
 
-  // Citations au format « extrait » (p. 12) ou (p. 12-13), éventuellement avec [...] ou un retour à la ligne.
+  // Réponse en Markdown ; tout HTML écrit par le modèle est affiché comme du texte, les images ne sont pas chargées.
+  if (window.marked) {
+    marked.use({ renderer: {
+      html: function (token) { return escapeHtml(typeof token === 'string' ? token : (token.raw || token.text || '')); },
+      image: function (href, title, text) {
+        var alt = typeof href === 'object' && href ? href.text : text;
+        return escapeHtml(alt || '');
+      }
+    } });
+  }
+  function renderMarkdown(text) {
+    var clean = stripLatex(text);
+    if (window.marked && window.DOMPurify) {
+      return DOMPurify.sanitize(marked.parse(clean, { breaks: true }), { FORBID_TAGS: ['img', 'style', 'form', 'input'] });
+    }
+    return '<p>' + escapeHtml(clean).replace(/\n/g, '<br>') + '</p>';
+  }
+
+  // Extraits entre « » de premier niveau (les guillemets imbriqués restent dans l'extrait).
+  function topLevelQuotes(text) {
+    var out = [], depth = 0, start = -1;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (ch === '«') { if (depth === 0) start = i + 1; depth++; }
+      else if (ch === '»' && depth > 0) {
+        depth--;
+        if (depth === 0) out.push({ text: text.slice(start, i), end: i + 1 });
+      }
+    }
+    return out;
+  }
+
+  // Sources : chaque référence de pages « (p. 12) » ou « [p. 12] », « (p. 12-13) », « (pp. 63-64) », « (p. 63, 1028) », « (p. 12 et 14) »
+  // est rattachée aux extraits « … » qui la précèdent depuis la référence précédente (60 caractères max d'écart).
   function extractSources(text) {
-    var re = /«\s*([^»]{12,}?)\s*»[\s*_]*\(\s*p\.?\s*(\d+(?:\s*[-–]\s*\d+)?)\s*\)/g;
-    var seen = {}, out = [], m;
-    while ((m = re.exec(text)) !== null) {
-      var excerpt = m[1].replace(/\n\s*>\s?/g, ' ').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
-      var page = m[2].replace(/\s*[-–]\s*/, '-');
-      var key = page + '|' + excerpt;
-      if (!seen[key]) { seen[key] = true; out.push({ excerpt: excerpt, page: page }); }
+    text = stripLatex(text);
+    var refRe = /[(\[]\s*pp?\.\s*(\d+(?:\s*(?:[-–,;]|et|p\.)\s*\d+)*)\s*[)\]]/g;
+    var quotes = topLevelQuotes(text);
+    var seen = {}, out = [], m, prevEnd = 0;
+    while ((m = refRe.exec(text)) !== null) {
+      var page = m[1].replace(/\s*[-–]\s*/g, '-').replace(/\s*p\.\s*/g, '').replace(/\s*([,;])\s*/g, '$1 ').replace(/\s+et\s+/g, ' et ').trim();
+      var refStart = m.index;
+      quotes.forEach(function (q) {
+        if (q.end <= prevEnd || q.end > refStart) return;
+        var between = text.slice(q.end, refStart);
+        if (between.replace(/[\s*_]/g, '').length > 60) return;
+        var excerpt = q.text.replace(/\n\s*>\s?/g, ' ').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
+        if (excerpt.length < 3) return;
+        var key = page + '|' + excerpt;
+        if (!seen[key]) { seen[key] = true; out.push({ excerpt: excerpt, page: page }); }
+      });
+      prevEnd = refStart + m[0].length;
     }
     return out;
   }

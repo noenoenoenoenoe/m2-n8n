@@ -18,7 +18,8 @@ Un visiteur ouvre l'URL de la page et pose des questions. Volume : quelques pers
 ### Livrables
 
 #### Page web servie par n8n
-- **Où** : un 3e point d'entrée du workflow `RAG Piketty`. Un Webhook `GET /webhook/rag-piketty` renvoie une page HTML complète (Respond to Webhook). Même domaine que le chat, donc pas de problème d'accès entre domaines.
+- **Où** : un petit workflow séparé, `RAG Piketty Page` (`udkOL3lt2slsTFP3`). Un Webhook `GET /webhook/rag-piketty` renvoie la page HTML (Respond to Webhook). Il est séparé parce que la page s'ouvre souvent : ses exécutions ne sont pas enregistrées (`saveDataSuccessExecution: none`), alors que le workflow principal garde les siennes pour le débogage.
+- n8n sert la page dans un « bac à sable » (CSP `sandbox` sans `allow-same-origin`) : l'origine vaut `null`, `localStorage` est bloqué, et l'appel à `POST /webhook/rag-piketty-ask` est cross-origin. Il ne fonctionne que grâce à `allowedOrigins: '*'` sur le nœud « Question Page ».
 - **Ambiance livre** :
   - fond crème (papier) ;
   - titres en police à empattements (type Playfair Display ou EB Garamond), corps en police lisible ;
@@ -37,10 +38,10 @@ Un visiteur ouvre l'URL de la page et pose des questions. Volume : quelques pers
   - indicateur d'attente (« Je feuillette le livre… »), les réponses prenant 5 à 20 s ;
   - message d'erreur lisible si le serveur ne répond pas, avec possibilité de réessayer.
 - **Cartes « Sources »** : sous chaque réponse, une carte par citation détectée au format « extrait » (p. X) ou (p. X-Y). Chaque carte montre l'extrait et la page en évidence. Si la réponse ne contient aucune citation (hors livre), pas de carte.
-- **Mémoire** : un identifiant de session par visiteur, gardé dans le navigateur, pour que les questions de suivi (« Et aux États-Unis ? ») marchent. Un bouton « Nouvelle conversation » en génère un nouveau.
+- **Mémoire** : un identifiant de session par visiteur, gardé dans l'URL (`#s=…`) car `localStorage` est bloqué par le bac à sable. Il survit au rechargement de la page. Un bouton « Nouvelle conversation » en génère un nouveau.
 
 #### Ajustement du prompt de l'agent
-Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le « Je ne trouve pas cette information dans le livre » strict est conservé.
+Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le modèle ne respecte pas toujours la consigne : la page retire aussi les délimiteurs `$…$` et `\(…\)` avant l'affichage. Les citations suivent un exemple concret (« extrait » (p. 63-64)). Un gabarit abstrait du type « … » (p. X) était recopié tel quel par le modèle. Le « Je ne trouve pas cette information dans le livre » strict est conservé.
 
 ## Écosystème technique
 
@@ -67,7 +68,7 @@ Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le « Je ne 
 
 ## Hypothèses
 - Un webhook n8n peut renvoyer une page HTML (vérifié : `text/html; charset=utf-8`, page identique à la source).
-- Source de la page : `interface/rag-piketty.html`, injectée dans le nœud « Servir Page » par `python3 interface/build.py` avant chaque push.
+- Source de la page : `interface/rag-piketty.html`, injectée dans le nœud « Servir Page » du workflow `RAG Piketty Page` par `python3 interface/build.py` avant chaque push.
 - Le Chat Trigger hébergé change d'ID à chaque push (constaté 3 fois) : la page passe donc par son propre webhook à chemin fixe. La mémoire prend la session du déclencheur utilisé (page ou chat hébergé).
 - Le format des citations produit par l'agent, « … » (p. X), reste assez régulier pour être détecté par une expression régulière (constaté sur les réponses de test).
 
