@@ -83,7 +83,7 @@ Avant d'écrire la spec, demander : « Autre chose à ajouter avant que je rédi
    - chaque élément du livrable sert un besoin exprimé, sinon le retirer.
 3. Enregistrer la spec **dans le repo du projet** : `specs/AAAA-MM-JJ-<nom-court>.md`. Créer le dossier `specs/` s'il n'existe pas.
 4. Présenter un résumé de 5 lignes, avec le chemin du fichier, et **s'arrêter**. Demander explicitement : « Je construis sur cette base ? »
-5. Quand l'utilisateur répond oui : commiter la spec, puis seulement commencer la construction. S'il demande des changements : modifier la spec, refaire la relecture, redemander.
+5. Quand l'utilisateur répond oui : commiter la spec, puis seulement commencer la construction, avec la skill `doubt-driven-dev`. S'il demande des changements : modifier la spec, refaire la relecture, redemander.
 
 Une validation porte sur ce qui a été montré. Valider l'idée ne valide pas une spec qui n'existe pas encore.
 
