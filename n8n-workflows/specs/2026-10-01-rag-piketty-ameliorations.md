@@ -1,6 +1,6 @@
 # Spec | RAG Piketty : améliorations inspirées du template « RAG expert doc n8n »
 
-> Statut : validée, construite · Date : 2026-10-01
+> Statut : validée, construite et vérifiée (après hostile review) · Date : 2026-10-01
 
 ## Contexte
 On a comparé notre RAG au template de Lucas Peyrin (importé sur n8n, `V4p2HJfzyvCKrDeb`). Trois points sont à reprendre avant le rendu du M2 :
@@ -55,3 +55,13 @@ On ajoute une règle reprise du template : ne pas parler de l'outil ni du foncti
 ## Points ouverts
 1. Le workflow d'erreur partagé avec Troov envoie toujours un message « tri des mails ». Hors périmètre ici.
 2. Point 4 (morceaux de 1000-1500 caractères) : après activation de la facturation Gemini.
+
+## Résultats de vérification (2026-10-01)
+- **Réveil** : la requête `SELECT count(*) AS lignes FROM rag_piketty;` renvoie `505`. Elle a été exécutée avec le même credential, depuis le workflow de diagnostic. Le nœud « Compter Index » lui-même reste à lancer une fois dans l'éditeur.
+- **Notes** : placées par rapport aux positions réellement déployées (n8n réorganise les nœuds au push). Pour chaque nœud, la note la plus proche est la sienne, et il n'y a aucun chevauchement. La note « Découpage + vectorisation » couvre 4 nœuds éloignés (jusqu'à environ 350 px).
+- **Prompt** : 3 séries des 3 questions de référence (exécutions 79 à 87). Sur 33 références de page, 32 sont numériques et font partie des pages renvoyées par la recherche. 1 est l'identifiant interne d'un morceau, malgré la consigne : la page la retire et n'en fait pas de carte. Aucun `$`, aucun mot interdit, phrase de repli exacte.
+- **Synchronisation** : `n8ncli diff --semantic` vide pour les deux workflows.
+
+## Constats
+- `n8ncli push` régénère l'identifiant du Chat Trigger (« Chat Livre ») et du Wait (« Pause Quota ») à chaque envoi. L'URL du chat de secours n'est donc pas stable : la page utilise un webhook à chemin fixe.
+- Le modèle confond parfois `page` et `id` dans les résultats de recherche (environ 1 référence sur 30). Piste pour plus tard : rendre la métadonnée plus explicite (`pages: "p. 525-526"`) à la prochaine ingestion.

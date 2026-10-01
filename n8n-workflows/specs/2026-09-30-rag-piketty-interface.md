@@ -19,7 +19,7 @@ Un visiteur ouvre l'URL de la page et pose des questions. Volume : quelques pers
 
 #### Page web servie par n8n
 - **Où** : un petit workflow séparé, `RAG Piketty Page` (`udkOL3lt2slsTFP3`). Un Webhook `GET /webhook/rag-piketty` renvoie la page HTML (Respond to Webhook). Il est séparé parce que la page s'ouvre souvent : ses exécutions ne sont pas enregistrées (`saveDataSuccessExecution: none`), alors que le workflow principal garde les siennes pour le débogage.
-- n8n sert la page dans un « bac à sable » (CSP `sandbox` sans `allow-same-origin`) : l'origine vaut `null`, `localStorage` est bloqué, et l'appel à `POST /webhook/rag-piketty-ask` est cross-origin. Il ne fonctionne que grâce à `allowedOrigins: '*'` sur le nœud « Question Page ».
+- n8n sert la page dans un « bac à sable » (CSP `sandbox` sans `allow-same-origin`) : l'origine vaut `null`, `localStorage` est bloqué, et l'appel à `POST /webhook/rag-piketty-ask` est cross-origin. Il ne fonctionne que grâce à `allowedOrigins: '*'` sur le nœud « POST /rag-piketty-ask ».
 - **Ambiance livre** :
   - fond crème (papier) ;
   - titres en police à empattements (type Playfair Display ou EB Garamond), corps en police lisible ;
@@ -48,7 +48,7 @@ Plus de LaTeX : écrire les formules en texte simple (« r > g »). Le modèle n
 | Outil | Rôle | Accès |
 |---|---|---|
 | n8n Cloud, workflow `RAG Piketty` | Sert la page + le chat existant | ✅ |
-| Webhook `POST /webhook/rag-piketty-ask` (nœud « Question Page ») | Entrée de la page : `{ sessionId, chatInput }` → `{ output }`, branché sur le même Agent RAG. Chemin fixe : l'ID du chat hébergé change à chaque `n8ncli push` et ne peut pas être codé en dur | ✅ |
+| Webhook `POST /webhook/rag-piketty-ask` (nœud « POST /rag-piketty-ask ») | Entrée de la page : `{ sessionId, chatInput }` → `{ output }`, branché sur le même Agent RAG. Chemin fixe : l'ID du chat hébergé change à chaque `n8ncli push` et ne peut pas être codé en dur | ✅ |
 | CDN (cdnjs / jsdelivr), Google Fonts | Rendu Markdown (marked + DOMPurify), polices | ✅ public |
 
 ## Contraintes opérationnelles

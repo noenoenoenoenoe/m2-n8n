@@ -180,7 +180,7 @@
 (function () {
   var CHAT_PATH = '/webhook/rag-piketty-ask';
   // n8n sert la page dans un bac à sable (CSP « sandbox » sans allow-same-origin) : l'origine vaut « null ».
-  // L'appel au webhook est donc cross-origin et dépend de allowedOrigins: '*' sur le nœud « Question Page ».
+  // L'appel au webhook est donc cross-origin et dépend de allowedOrigins: '*' sur le nœud « POST /rag-piketty-ask ».
   var CHAT_URL = 'https://noetroov.app.n8n.cloud' + CHAT_PATH;
   var TIMEOUT_MS = 120000;
 
@@ -217,8 +217,11 @@
   }
 
   // Formules écrites en LaTeX par le modèle ($r > g$, \(r > g\)) : on garde le texte, sans les délimiteurs.
+  // Le modèle confond parfois la page avec l'identifiant interne d'un morceau (UUID) : on retire ces références.
+  var BAD_REF = /\s*[(\[]\s*pp?\.\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\s*[)\]]/gi;
+  function stripBadRefs(text) { return String(text).replace(BAD_REF, ''); }
   function stripLatex(text) {
-    return String(text)
+    return stripBadRefs(text)
       .replace(/\$\$([^$]{1,200})\$\$/g, '$1')
       .replace(/\$([^$\n]{1,80})\$/g, '$1')
       .replace(/\\\(([^)]{1,80})\\\)/g, '$1');
@@ -258,14 +261,17 @@
 
   // Sources : chaque référence de pages « (p. 12) » ou « [p. 12] », « (p. 12-13) », « (pp. 63-64) », « (p. 63, 1028) », « (p. 12 et 14) »
   // est rattachée aux extraits « … » qui la précèdent depuis la référence précédente (60 caractères max d'écart).
+  // Une fausse référence (identifiant interne) sert de séparateur : l'extrait qui la précède n'est rattaché à aucune page.
   function extractSources(text) {
+    text = String(text).replace(BAD_REF, ' (p. ∅)');
     text = stripLatex(text);
-    var refRe = /[(\[]\s*pp?\.\s*(\d+(?:\s*(?:[-–,;]|et|p\.)\s*\d+)*)\s*[)\]]/g;
+    var refRe = /[(\[]\s*pp?\.\s*(∅|\d+(?:\s*(?:[-–,;]|et|p\.)\s*\d+)*)\s*[)\]]/g;
     var quotes = topLevelQuotes(text);
     var seen = {}, out = [], m, prevEnd = 0;
     while ((m = refRe.exec(text)) !== null) {
       var page = m[1].replace(/\s*[-–]\s*/g, '-').replace(/\s*p\.\s*/g, '').replace(/\s*([,;])\s*/g, '$1 ').replace(/\s+et\s+/g, ' et ').trim();
       var refStart = m.index;
+      if (page === '∅') { prevEnd = refStart + m[0].length; continue; }
       quotes.forEach(function (q) {
         if (q.end <= prevEnd || q.end > refStart) return;
         var between = text.slice(q.end, refStart);
