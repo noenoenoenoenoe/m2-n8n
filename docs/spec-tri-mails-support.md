@@ -1,6 +1,6 @@
 # Spec | Tri et notification des mails support
 
-> Statut : en test — validée le 29/09, mise à jour le 30/09 · Workflow : « Tri Et Notification Mails Support (Test V3) »
+> Statut : en test — validée le 29/09, mise à jour le 30/09 · Workflow : « Support - Tri et notification des mails (v2) »
 
 ## Contexte
 Troov reçoit les demandes clients sur deux adresses support. L'équipe support (2 personnes) doit repérer rapidement les demandes urgentes et savoir de quel type de client elles viennent, sans surveiller les boîtes mail en continu.
