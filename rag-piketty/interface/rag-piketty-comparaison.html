@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Capital au XXIe siècle · Comparer V1 / V2 / V3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<style>
+  :root {
+    --paper: #f6f1e6;
+    --paper-deep: #efe7d6;
+    --card: #fffdf8;
+    --ink: #1f2330;
+    --ink-soft: #5b5f6b;
+    --navy: #14213d;
+    --accent: #7a1f2b;
+    --accent-soft: #f3e3e3;
+    --rule: #d9cfbb;
+    --serif-title: "Playfair Display", Georgia, serif;
+    --serif: "Source Serif 4", Georgia, serif;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    background-image: radial-gradient(circle at 20% 0%, rgba(255,255,255,.6), transparent 60%);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
+
+  header { padding: 48px 0 24px; text-align: center; border-bottom: 1px solid var(--rule); }
+  .eyebrow { font-family: var(--sans); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1 { font-family: var(--serif-title); font-weight: 700; font-size: clamp(30px, 6vw, 46px); line-height: 1.1; margin: 0; color: var(--navy); }
+  h1 em { font-weight: 500; }
+  .author { font-style: italic; color: var(--ink-soft); margin: 10px 0 0; }
+  .ornament { color: var(--accent); margin: 18px 0 6px; font-size: 18px; letter-spacing: .6em; }
+  .tagline { font-size: 17px; color: var(--ink-soft); margin: 0; }
+  .switch { display: inline-flex; margin-top: 18px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: var(--card); font-family: var(--sans); }
+  .switch button { font: inherit; font-size: 14px; border: 0; background: none; color: var(--ink); padding: 8px 14px; cursor: pointer; text-align: left; line-height: 1.3; }
+  .switch button + button { border-left: 1px solid var(--rule); }
+  .switch button small { display: block; font-size: 11px; color: var(--ink-soft); }
+  .switch button[aria-pressed="true"] { background: var(--navy); color: #f6f1e6; }
+  .switch button[aria-pressed="true"] small { color: #cfd4e2; }
+  .badge { display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--accent); background: var(--accent-soft); border-radius: 3px; padding: 2px 6px; margin-bottom: 8px; }
+
+  main { flex: 1; padding: 28px 0 24px; }
+
+  .intro { text-align: center; }
+  .intro p { color: var(--ink-soft); margin: 0 0 18px; font-size: 16px; }
+  .suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .suggestion {
+    font: inherit; font-size: 16px; text-align: left; cursor: pointer;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: 4px; padding: 12px 14px; line-height: 1.4;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .suggestion:hover, .suggestion:focus-visible { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(20,33,61,.08); border-color: var(--accent); outline: none; }
+
+  .thread { display: flex; flex-direction: column; gap: 22px; }
+  .thread[hidden] { display: none; }
+  .q {
+    align-self: flex-end; max-width: 85%;
+    background: var(--navy); color: #f6f1e6;
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    padding: 10px 14px; border-radius: 14px 14px 2px 14px;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .a {
+    background: var(--card); border: 1px solid var(--rule); border-radius: 4px;
+    padding: 18px 20px; box-shadow: 0 1px 0 var(--paper-deep);
+    word-wrap: break-word; overflow-wrap: anywhere;
+  }
+  .a p { margin: 0 0 12px; }
+  .a p:last-child { margin-bottom: 0; }
+  .a ul, .a ol { padding-left: 22px; margin: 0 0 12px; }
+  .a li { margin-bottom: 6px; }
+  .a blockquote { margin: 12px 0; padding: 4px 0 4px 14px; border-left: 3px solid var(--accent); color: var(--ink-soft); font-style: italic; }
+  .a strong { color: var(--navy); }
+  .a code { font-size: .9em; background: var(--paper-deep); padding: 1px 4px; border-radius: 3px; }
+  .a pre { max-width: 100%; overflow-x: auto; background: var(--paper-deep); padding: 10px 12px; border-radius: 4px; }
+  .a pre code { padding: 0; background: none; }
+  .a table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+
+  .sources { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--rule); }
+  .sources h3 { font-family: var(--sans); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin: 0 0 10px; font-weight: 600; }
+  .cards { display: grid; gap: 10px; }
+  .source {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 10px 12px;
+  }
+  .page {
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent);
+    background: var(--accent-soft); border-radius: 3px; padding: 3px 7px; white-space: nowrap;
+  }
+  .excerpt { font-style: italic; font-size: 15px; line-height: 1.5; color: var(--ink); }
+
+  .thinking { display: flex; align-items: center; gap: 10px; color: var(--ink-soft); font-style: italic; }
+  .dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; }
+  .dots span:nth-child(2) { animation-delay: .2s; }
+  .dots span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+
+  .error { border-color: #d8a7a7; background: #fdf4f4; }
+  .error p { margin: 0 0 10px; }
+  .btn-link { font-family: var(--sans); font-size: 14px; background: none; border: 1px solid var(--accent); color: var(--accent); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+  .btn-link:hover { background: var(--accent-soft); }
+
+  .composer { position: sticky; bottom: 0; background: linear-gradient(to top, var(--paper) 70%, rgba(246,241,230,0)); padding: 18px 0 16px; }
+  form { display: flex; gap: 8px; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 6px; box-shadow: 0 6px 24px rgba(20,33,61,.08); }
+  form:focus-within { border-color: var(--navy); }
+  textarea {
+    flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent;
+    font-family: var(--serif); font-size: 17px; color: var(--ink); line-height: 1.5; padding: 8px 10px; max-height: 160px;
+  }
+  textarea::placeholder { color: #9a9486; font-style: italic; }
+  .send { font-family: var(--sans); font-weight: 600; font-size: 14px; border: 0; border-radius: 4px; background: var(--navy); color: #f6f1e6; padding: 0 16px; cursor: pointer; }
+  .send:disabled { opacity: .45; cursor: default; }
+  .meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+  .reset { font: inherit; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+  footer { border-top: 1px solid var(--rule); padding: 14px 0 22px; text-align: center; font-family: var(--sans); font-size: 12px; color: var(--ink-soft); }
+
+  @media (max-width: 520px) {
+    body { font-size: 17px; }
+    header { padding: 32px 0 18px; }
+    .q { max-width: 92%; }
+    .a { padding: 14px 14px; }
+    .meta span:first-child { display: none; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <p class="eyebrow">Posez vos questions au livre</p>
+      <h1>Le Capital <em>au XXI<sup>e</sup> siècle</em></h1>
+      <p class="author">Thomas Piketty · Éditions du Seuil, 2013</p>
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <p class="tagline">Comparer deux façons de découper le livre : posez la même question à chaque version.</p>
+      <div class="switch" role="group" aria-label="Version du RAG">
+        <button type="button" data-v="v1" aria-pressed="true">V1<small>2 pages par chunk</small></button>
+        <button type="button" data-v="v2" aria-pressed="false">V2<small>1 section par chunk</small></button>
+        <button type="button" data-v="v3" aria-pressed="false">V3<small>pipeline hybride</small></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+      <section class="intro" id="intro">
+        <p>Pour commencer, choisissez une question ou écrivez la vôtre.</p>
+        <div class="suggestions">
+          <button class="suggestion" type="button">Résume la thèse r &gt; g</button>
+          <button class="suggestion" type="button">Qu'est-ce qu'une société de rentiers selon Piketty ?</button>
+          <button class="suggestion" type="button">Comment ont évolué les inégalités en France au XXe siècle ?</button>
+          <button class="suggestion" type="button">Que propose Piketty pour réduire les inégalités ?</button>
+        </div>
+      </section>
+      <section class="thread" id="thread-v1" aria-live="polite"></section>
+      <section class="thread" id="thread-v2" aria-live="polite" hidden></section>
+      <section class="thread" id="thread-v3" aria-live="polite" hidden></section>
+    </div>
+  </main>
+
+  <div class="composer">
+    <div class="wrap">
+      <form id="form">
+        <textarea id="input" rows="1" placeholder="Votre question sur le livre…" aria-label="Votre question"></textarea>
+        <button class="send" id="send" type="submit">Envoyer</button>
+      </form>
+      <div class="meta">
+        <span>Entrée pour envoyer · Maj + Entrée pour aller à la ligne</span>
+        <button class="reset" id="reset" type="button">Nouvelle conversation (version affichée)</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">Projet M2 · RAG construit avec n8n, Google Gemini et Supabase</div>
+  </footer>
+
+<script>
+(function () {
+  var CHAT_PATHS = { v1: '/webhook/rag-piketty-ask', v2: '/webhook/rag-piketty-v2-ask', v3: '/webhook/rag-piketty-v3-ask' };
+  var LABELS = { v1: 'V1 · 2 pages par chunk', v2: 'V2 · 1 section par chunk', v3: 'V3 · pipeline hybride' };
+  var VERSIONS = ['v1', 'v2', 'v3'];
+  // n8n sert la page dans un bac à sable (CSP « sandbox » sans allow-same-origin) : l'origine vaut « null ».
+  // L'appel au webhook est donc cross-origin et dépend de allowedOrigins: '*' sur le nœud « POST /rag-piketty-ask ».
+  var BASE_URL = 'https://votre-instance.app.n8n.cloud';
+  var TIMEOUT_MS = 120000;
+
+  var version = 'v1';
+  var threads = { v1: document.getElementById('thread-v1'), v2: document.getElementById('thread-v2'), v3: document.getElementById('thread-v3') };
+  var thread = threads.v1;
+  var intro = document.getElementById('intro');
+  var form = document.getElementById('form');
+  var input = document.getElementById('input');
+  var send = document.getElementById('send');
+  var busy = false;
+
+  function newId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+  // localStorage est bloqué par le bac à sable : version et sessions vivent dans l'URL (#v=v2&s1=…&s2=…&s3=…).
+  function readHash() {
+    var h = {};
+    (location.hash || '').replace(/^#/, '').split('&').forEach(function (kv) {
+      var p = kv.split('='); if (p[0]) h[p[0]] = decodeURIComponent(p[1] || '');
+    });
+    return h;
+  }
+  function writeHash() {
+    var h = '#v=' + version + '&s1=' + sessions.v1 + '&s2=' + sessions.v2 + '&s3=' + sessions.v3;
+    try { history.replaceState(null, '', h); } catch (e) { try { location.hash = h.slice(1); } catch (e2) {} }
+  }
+  var initial = readHash();
+  var okId = function (x) { return /^[\w-]{8,64}$/.test(x || '') ? x : null; };
+  var sessions = { v1: okId(initial.s1) || newId(), v2: okId(initial.s2) || newId(), v3: okId(initial.s3) || newId() };
+  if (VERSIONS.indexOf(initial.v) >= 0) version = initial.v;
+  writeHash();
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Formules écrites en LaTeX par le modèle ($r > g$, \(r > g\)) : on garde le texte, sans les délimiteurs.
+  // Le modèle confond parfois la page avec l'identifiant interne d'un morceau (UUID) : on retire ces références.
+  var BAD_REF = /\s*[(\[]\s*pp?\.\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\s*[)\]]/gi;
+  function stripBadRefs(text) { return String(text).replace(BAD_REF, ''); }
+  function stripLatex(text) {
+    return stripBadRefs(text)
+      .replace(/\$\$([^$]{1,200})\$\$/g, '$1')
+      .replace(/\$([^$\n]{1,80})\$/g, '$1')
+      .replace(/\\\(([^)]{1,80})\\\)/g, '$1');
+  }
+
+  // Réponse en Markdown ; tout HTML écrit par le modèle est affiché comme du texte, les images ne sont pas chargées.
+  if (window.marked) {
+    marked.use({ renderer: {
+      html: function (token) { return escapeHtml(typeof token === 'string' ? token : (token.raw || token.text || '')); },
+      image: function (href, title, text) {
+        var alt = typeof href === 'object' && href ? href.text : text;
+        return escapeHtml(alt || '');
+      }
+    } });
+  }
+  function renderMarkdown(text) {
+    var clean = stripLatex(text);
+    if (window.marked && window.DOMPurify) {
+      return DOMPurify.sanitize(marked.parse(clean, { breaks: true }), { FORBID_TAGS: ['img', 'style', 'form', 'input'] });
+    }
+    return '<p>' + escapeHtml(clean).replace(/\n/g, '<br>') + '</p>';
+  }
+
+  // Extraits entre « » de premier niveau (les guillemets imbriqués restent dans l'extrait).
+  function topLevelQuotes(text) {
+    var out = [], depth = 0, start = -1;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (ch === '«') { if (depth === 0) start = i + 1; depth++; }
+      else if (ch === '»' && depth > 0) {
+        depth--;
+        if (depth === 0) out.push({ text: text.slice(start, i), end: i + 1 });
+      }
+    }
+    return out;
+  }
+
+  // Sources : chaque référence de pages « (p. 12) » ou « [p. 12] », « (p. 12-13) », « (pp. 63-64) », « (p. 63, 1028) », « (p. 12 et 14) »
+  // est rattachée aux extraits « … » qui la précèdent depuis la référence précédente (60 caractères max d'écart).
+  // Une fausse référence (identifiant interne) sert de séparateur : l'extrait qui la précède n'est rattaché à aucune page.
+  function extractSources(text) {
+    text = String(text).replace(BAD_REF, ' (p. ∅)');
+    text = stripLatex(text);
+    var refRe = /[(\[]\s*pp?\.\s*(∅|\d+(?:\s*(?:[-–,;]|et|p\.)\s*\d+)*)\s*[)\]]/g;
+    var quotes = topLevelQuotes(text);
+    var seen = {}, out = [], m, prevEnd = 0;
+    while ((m = refRe.exec(text)) !== null) {
+      var page = m[1].replace(/\s*[-–]\s*/g, '-').replace(/\s*p\.\s*/g, '').replace(/\s*([,;])\s*/g, '$1 ').replace(/\s+et\s+/g, ' et ').trim();
+      var refStart = m.index;
+      if (page === '∅') { prevEnd = refStart + m[0].length; continue; }
+      quotes.forEach(function (q) {
+        if (q.end <= prevEnd || q.end > refStart) return;
+        var between = text.slice(q.end, refStart);
+        if (between.replace(/[\s*_]/g, '').length > 60) return;
+        var excerpt = q.text.replace(/\n\s*>\s?/g, ' ').replace(/\*\*|__/g, '').replace(/\s+/g, ' ').trim();
+        if (excerpt.length < 3) return;
+        var key = page + '|' + excerpt;
+        if (!seen[key]) { seen[key] = true; out.push({ excerpt: excerpt, page: page }); }
+      });
+      prevEnd = refStart + m[0].length;
+    }
+    return out;
+  }
+
+  // Lit la réponse : flux n8n (lignes JSON begin / item / end, affichées au fur et à mesure)
+  // ou JSON classique { output } (V1, V2, ou repli).
+  function readAnswer(r, pending) {
+    var streamed = '', sawStream = false, buffer = '', raw = '';
+    function handleLine(line) {
+      line = line.trim();
+      if (!line) return;
+      var ev;
+      try { ev = JSON.parse(line); } catch (e) { return; }
+      if (!ev || typeof ev.type !== 'string') return;
+      sawStream = true;
+      if (ev.type === 'item' && typeof ev.content === 'string') {
+        streamed += ev.content;
+        pending.className = 'a';
+        pending.textContent = stripLatex(streamed);
+        scrollDown();
+      } else if (ev.type === 'error') {
+        throw new Error('Erreur du flux');
+      }
+    }
+    function finish() {
+      if (buffer) { raw += ''; handleLine(buffer); buffer = ''; }
+      if (sawStream) return streamed;
+      var data = JSON.parse(raw);
+      return data && (data.output || data.text);
+    }
+    if (!r.body || !r.body.getReader || !window.TextDecoder) {
+      return r.text().then(function (t) { raw = t; t.split('\n').forEach(handleLine); return sawStream ? streamed : finish(); });
+    }
+    var reader = r.body.getReader(), decoder = new TextDecoder();
+    function pump() {
+      return reader.read().then(function (chunk) {
+        if (chunk.done) { buffer += decoder.decode(); return finish(); }
+        var piece = decoder.decode(chunk.value, { stream: true });
+        raw += piece;
+        buffer += piece;
+        var lines = buffer.split('\n');
+        buffer = lines.pop();
+        lines.forEach(handleLine);
+        return pump();
+      });
+    }
+    return pump();
+  }
+
+  function scrollDown() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+
+  function addQuestion(text) {
+    var el = document.createElement('div');
+    el.className = 'q';
+    el.textContent = text;
+    thread.appendChild(el);
+  }
+
+  function addThinking(v) {
+    var el = document.createElement('div');
+    el.dataset.v = v;
+    el.className = 'a thinking';
+    el.innerHTML = '<span class="dots"><span></span><span></span><span></span></span> Je feuillette le livre…';
+    thread.appendChild(el);
+    scrollDown();
+    return el;
+  }
+
+  function fillAnswer(el, text) {
+    el.className = 'a';
+    el.innerHTML = '<span class="badge">' + escapeHtml(LABELS[el.dataset.v] || '') + '</span>' + renderMarkdown(text);
+    var sources = extractSources(text);
+    if (sources.length) {
+      var box = document.createElement('div');
+      box.className = 'sources';
+      box.innerHTML = '<h3>Sources dans le livre</h3>';
+      var cards = document.createElement('div');
+      cards.className = 'cards';
+      sources.forEach(function (s) {
+        var c = document.createElement('div');
+        c.className = 'source';
+        var p = document.createElement('span');
+        p.className = 'page';
+        p.textContent = 'p. ' + s.page;
+        var ex = document.createElement('span');
+        ex.className = 'excerpt';
+        ex.textContent = '« ' + s.excerpt + ' »';
+        c.appendChild(p); c.appendChild(ex);
+        cards.appendChild(c);
+      });
+      box.appendChild(cards);
+      el.appendChild(box);
+    }
+  }
+
+  function fillError(el, question, v) {
+    el.className = 'a error';
+    el.innerHTML = '<p>Le livre ne répond pas pour l\'instant (serveur occupé ou quota atteint). Réessayez dans une minute.</p>';
+    var b = document.createElement('button');
+    b.className = 'btn-link';
+    b.type = 'button';
+    b.textContent = 'Réessayer';
+    b.addEventListener('click', function () {
+      if (busy) return;
+      el.remove();
+      ask(question, true, v);
+    });
+    el.appendChild(b);
+  }
+
+  function setBusy(v) {
+    busy = v;
+    send.disabled = v;
+    input.disabled = v;
+    Array.prototype.forEach.call(document.querySelectorAll('.suggestion'), function (b) { b.disabled = v; });
+  }
+
+  function ask(question, isRetry, forVersion) {
+    question = String(question || '').trim();
+    if (!question || busy) return;
+    var v = forVersion || version;
+    thread = threads[v];
+    intro.style.display = 'none';
+    if (!isRetry) addQuestion(question);
+    var pending = addThinking(v);
+    setBusy(true);
+
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, TIMEOUT_MS);
+
+    fetch(BASE_URL + CHAT_PATHS[v], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'sendMessage', sessionId: sessions[v], chatInput: question }),
+      signal: ctrl ? ctrl.signal : undefined
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return readAnswer(r, pending);
+      })
+      .then(function (text) {
+        if (!text) throw new Error('Réponse vide');
+        fillAnswer(pending, text);
+      })
+      .catch(function () { fillError(pending, question, v); })
+      .then(function () {
+        clearTimeout(timer);
+        setBusy(false);
+        input.focus();
+        scrollDown();
+      });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = input.value;
+    input.value = '';
+    autosize();
+    ask(q, false);
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
+    }
+  });
+
+  function autosize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }
+  input.addEventListener('input', autosize);
+
+  Array.prototype.forEach.call(document.querySelectorAll('.suggestion'), function (b) {
+    b.addEventListener('click', function () { ask(b.textContent, false); });
+  });
+
+  function setVersion(v) {
+    if (busy) return;
+    version = v;
+    Array.prototype.forEach.call(document.querySelectorAll('.switch button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.v === v));
+    });
+    VERSIONS.forEach(function (x) { threads[x].hidden = x !== v; });
+    thread = threads[v];
+    intro.style.display = thread.children.length ? 'none' : '';
+    writeHash();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.switch button'), function (b) {
+    b.addEventListener('click', function () { setVersion(b.dataset.v); });
+  });
+  setVersion(version);
+
+  document.getElementById('reset').addEventListener('click', function () {
+    if (busy) return;
+    sessions[version] = newId();
+    threads[version].innerHTML = '';
+    intro.style.display = '';
+    writeHash();
+    input.focus();
+  });
+})();
+</script>
+</body>
+</html>

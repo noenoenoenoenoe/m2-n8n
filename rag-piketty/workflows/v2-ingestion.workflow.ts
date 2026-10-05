@@ -1,0 +1,106 @@
+const modele_Gemini = languageModel({ type: '@n8n/n8n-nodes-langchain.lmChatGoogleGemini', version: 1.2, config: { name: 'Modele Gemini', parameters: { modelName: 'models/gemini-flash-lite-latest', options: { temperature: 0.2 } }, credentials: { googlePalmApi: newCredential('Troov CS autom (compte)', 'CREDENTIAL_ID') }, position: [400, 1472] } });
+const memoire_Chat = memory({ type: '@n8n/n8n-nodes-langchain.memoryPostgresChat', version: 1.4, config: { name: 'Memoire Chat', parameters: { sessionIdType: 'customKey', sessionKey: expr('{{ $(\'POST /rag-piketty-v2-ask\').item.json.body.sessionId }}'), tableName: 'rag_piketty_v2_chat', contextWindowLength: 10 }, credentials: { postgres: newCredential('Supabase Postgres', 'CREDENTIAL_ID') }, position: [400, 1648] } });
+const embeddings_Recherche = embedding({ type: '@n8n/n8n-nodes-langchain.embeddingsGoogleGemini', version: 1, config: { name: 'Embeddings Recherche', parameters: { modelName: 'models/gemini-embedding-2' }, credentials: { googlePalmApi: newCredential('Troov CS autom (compte)', 'CREDENTIAL_ID') }, position: [0, 1808] } });
+const recherche_Livre = tool({ type: '@n8n/n8n-nodes-langchain.vectorStorePGVector', version: 1.3, config: { name: 'Recherche Livre', parameters: { mode: 'retrieve-as-tool', toolDescription: 'Recherche sémantique dans le livre indexé (Le Capital au XXIe siècle, Thomas Piketty). Renvoie les passages les plus proches de la requête, avec leur numéro de page dans les métadonnées. À utiliser pour toute question sur le contenu du livre.', tableName: 'rag_piketty_v2_chunks', topK: 8, options: { columnNames: { values: { contentColumnName: 'chunk' } } } }, credentials: { postgres: newCredential('Supabase Postgres', 'CREDENTIAL_ID') }, position: [400, 1808], notes: 'Recherche vectorielle dans rag_piketty_v2_chunks. Recherche hybride (mots-clés) : étape suivante.', notesInFlow: true, subnodes: { embedding: embeddings_Recherche } } });
+
+const formulaire_Livre = trigger({
+  type: 'n8n-nodes-base.formTrigger',
+  version: 2.6,
+  config: { name: 'Formulaire Livre', parameters: { formTitle: 'RAG V2 : indexer un livre', formDescription: 'Envoie un PDF (avec couche texte). Les chunks sont ajoutés ou mis à jour (upsert), sans doublon.', formFields: { values: [{ fieldLabel: 'Livre (PDF)', fieldType: 'file', fieldName: 'livre', multipleFiles: false, acceptFileTypes: '.pdf', requiredField: true }, { fieldLabel: 'Titre du livre', fieldName: 'titre', placeholder: 'Le Capital au XXIe siècle', requiredField: true }] }, options: { respondWithOptions: { values: { formSubmittedText: 'Livre reçu. L\'indexation V2 tourne en arrière-plan. N\'envoie pas le fichier une deuxième fois.' } } } }, position: [16, 0], webhookId: '00000000-0000-0000-0000-000000000000', notes: 'Entrée : PDF + titre.', notesInFlow: true }
+});
+
+const extraire_Texte_PDF = node({
+  type: 'n8n-nodes-base.extractFromFile',
+  version: 1.1,
+  config: { name: 'Extraire Texte PDF', parameters: { operation: 'pdf', binaryPropertyName: 'livre', options: { joinPages: false } }, position: [224, 0], notes: 'Texte page par page.', notesInFlow: true }
+});
+
+const decouper_Chunks = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Decouper Chunks', parameters: { jsCode: '// Découpage en chunks : 1 chunk = 1 section de la table des matières (TdM).\n// Chaque chunk reçoit un identifiant stable (capital21-001…) et un en-tête Partie / Chapitre / Section,\n// pour que le titre de section soit vectorisé et indexé en mots-clés. Le texte est nettoyé ici.\n// Repère dans le texte, dans l\'ordre de la TdM, chaque titre (partie, chapitre, section),\n// puis découpe le texte entre deux titres. Exclut le début du livre, la fin et les notes de fin de chapitre.\nconst titre = $(\'Formulaire Livre\').first().json.titre;\nconst raw = $input.first().json.text;\nconst pages = Array.isArray(raw) ? raw : String(raw ?? \'\').split(\'\\f\');\n\nconst WM = /OceanofPDF\\.com/gi;\nconst norm = (s) => String(s).replace(WM, \'\').replace(/[\\s\\-–—]/g, \'\').toLowerCase();\nconst lines = (p) => String(p ?? \'\').split(\'\\n\');\nconst isNumLine = (l) => /^\\s*\\d{1,3}\\.\\s*$/.test(l);\n// Page de notes de fin de chapitre : commence par une série de numéros « 14. », « 15. »…\nconst isNotesPage = (p) => lines(p).slice(0, 6).filter(isNumLine).length >= 3;\n\n// 1. Table des matières : de « TABLE DES MATIÈRES » jusqu\'à la page qui commence par une entrée déjà lue.\nconst tocStart = pages.findIndex((p) => /^\\s*TABLE DES MATI[ÈE]RES/i.test(p));\nif (tocStart < 0) throw new Error(\'Table des matières introuvable\');\nconst toc = [];\nlet bodyStart = -1;\nfor (let i = tocStart; i < pages.length; i++) {\n  const first = lines(pages[i]).map((l) => l.trim()).find((l) => l && !WM.test(l));\n  WM.lastIndex = 0;\n  if (i > tocStart && toc.some((e) => norm(e) === norm(first))) { bodyStart = i; break; }\n  for (const l of lines(pages[i])) {\n    const t = l.replace(WM, \'\').trim();\n    if (t && !/^TABLE DES MATI/i.test(t)) toc.push(t);\n  }\n}\nif (bodyStart < 0) throw new Error(\'Fin de la table des matières introuvable\');\n\n// 2. Entrées utiles : de « Introduction » jusqu\'avant « Liste des graphiques et tableaux ».\nconst iIntro = toc.findIndex((e) => norm(e) === \'introduction\');\nconst iEnd = toc.findIndex((e) => /^liste des graphiques/i.test(e));\nif (iIntro < 0 || iEnd < 0) throw new Error(\'Introduction ou liste des graphiques absente de la TdM\');\nconst entries = toc.slice(iIntro, iEnd).map((e) => {\n  let type = \'section\';\n  if (/^(PREMIÈRE|DEUXIÈME|TROISIÈME|QUATRIÈME) PARTIE\\b/i.test(e)) type = \'partie\';\n  else if (/^\\d{1,2}\\.\\s*[-–]/.test(e)) type = \'chapitre\';\n  else if (/^(Introduction|Conclusion)$/i.test(e)) type = \'chapitre\';\n  return { text: e, key: norm(e), type };\n});\n\n// 3. Lignes du corps du livre (hors pages de notes), avec leur numéro de page.\nconst body = [];\nfor (let i = bodyStart; i < pages.length; i++) {\n  if (isNotesPage(pages[i])) continue;\n  for (const l of lines(pages[i])) body.push({ page: i + 1, line: l });\n}\n\n// 4. Repérage des titres dans l\'ordre : un titre peut être coupé sur plusieurs lignes (« XX / e / siècle »).\nconst found = [];\nlet cursor = 0;\nfor (const e of entries) {\n  let hit = -1, span = 0;\n  for (let k = cursor; k < body.length && hit < 0; k++) {\n    let acc = \'\';\n    for (let s = 0; s < 6 && k + s < body.length; s++) {\n      acc += norm(body[k + s].line);\n      if (acc === e.key) { hit = k; span = s + 1; break; }\n      if (!e.key.startsWith(acc)) break;\n    }\n  }\n  if (hit < 0) continue; // titre non retrouvé : son texte reste dans le chunk précédent\n  found.push({ ...e, at: hit, end: hit + span });\n  cursor = hit + span;\n}\nconst nbSections = entries.filter((e) => e.type === \'section\').length;\nconst nbFound = found.filter((e) => e.type === \'section\').length;\nif (nbFound < nbSections * 0.8) throw new Error(`Seulement ${nbFound}/${nbSections} titres de section retrouvés`);\n\n// 5. Fin du livre : on s\'arrête à la page « Liste des graphiques et tableaux ».\nlet bodyEnd = body.length;\nconst iList = body.findIndex((b, k) => k > (found.at(-1)?.at ?? 0) && /^\\s*Liste des graphiques/i.test(b.line));\nif (iList > 0) bodyEnd = iList;\n\n// 6. Chunks : texte entre deux titres. Le texte entre un titre de chapitre et sa première section\n//    (introduction du chapitre) est ajouté au début de cette première section.\n// Nettoyage : filigrane, espaces. Les tirets de fin de ligne sont gardés (mots composés : « États-Unis »).\nconst clean = (t) => String(t)\n  .replace(WM, \'\')\n  .replace(/[ \\t]*\\n[ \\t]*/g, \'\\n\')\n  .replace(/\\n{3,}/g, \'\\n\\n\')\n  .replace(/[ \\t]{2,}/g, \' \')\n  .trim();\nlet partie = \'Introduction\', chapitre = \'Introduction\';\nconst out = [];\nlet pending = null; // introduction de chapitre en attente de sa première section\nfound.forEach((h, idx) => {\n  if (h.type === \'partie\') partie = h.text.replace(/\\s*[-–]\\s*/, \' : \');\n  if (h.type === \'chapitre\') {\n    chapitre = h.text.replace(/^(\\d{1,2})\\.\\s*[-–]\\s*/, \'Chapitre $1 : \');\n    if (/^Conclusion$/i.test(h.text)) partie = \'Conclusion\';\n    if (/^Introduction$/i.test(h.text)) partie = \'Introduction\';\n  }\n  const from = h.end, to = idx + 1 < found.length ? found[idx + 1].at : bodyEnd;\n  const seg = body.slice(from, to);\n  let body_text = clean(seg.map((b) => b.line).join(\'\\n\'));\n  let p0 = seg.find((b) => b.line.trim())?.page ?? body[h.at].page;\n  const p1 = [...seg].reverse().find((b) => b.line.trim())?.page ?? p0;\n  if (h.type === \'partie\') return; // titre de partie : pas de texte propre\n  if (h.type === \'chapitre\') { // introduction du chapitre : gardée pour la première section\n    pending = body_text.replace(/\\s/g, \'\').length > 0 ? { text: body_text, page: p0 } : null;\n    return;\n  }\n  if (pending) { body_text = pending.text + \'\\n\\n\' + body_text; p0 = pending.page; pending = null; }\n  if (body_text.replace(/\\s/g, \'\').length < 200) return; // segment vide\n  const section = h.text;\n  const ordre = out.length + 1;\n  out.push({\n    json: {\n      chunk_id: \'capital21-\' + String(ordre).padStart(3, \'0\'),\n      text: `Partie : ${partie}\\nChapitre : ${chapitre}\\nSection : ${section}\\n\\n${body_text}`,\n      section, chapitre, partie, titre,\n      page: p0 === p1 ? String(p0) : `${p0}-${p1}`,\n      ordre,\n    },\n  });\n});\nif (pending) throw new Error(`Introduction du chapitre « ${chapitre} » sans section après elle`);\nif (out.length === 0) throw new Error(\'Aucun chunk produit\');\nreturn out;\n' }, position: [448, 0], notes: '1 chunk = 1 section (~217), l\'introduction du chapitre étant collée à sa 1re section. Nettoie le texte, ajoute l\'en-tête Partie / Chapitre / Section et un chunk_id stable.', notesInFlow: true }
+});
+
+const limit_Test = node({
+  type: 'n8n-nodes-base.limit',
+  version: 1,
+  config: { name: 'Limit Test', position: [640, 0], notes: 'Limite de test : laisser à 1 (ou 2) pour essayer. Mettre 1000 pour indexer tout le livre (~25 min en niveau gratuit).', notesInFlow: true }
+});
+
+const creer_Table = node({
+  type: 'n8n-nodes-base.postgres',
+  version: 2.7,
+  config: { name: 'Creer Table', parameters: { operation: 'executeQuery', query: 'CREATE EXTENSION IF NOT EXISTS vector;\nCREATE TABLE IF NOT EXISTS rag_piketty_v2_chunks (\n  id text PRIMARY KEY,\n  chunk text NOT NULL,\n  metadata jsonb NOT NULL DEFAULT \'{}\'::jsonb,\n  embedding vector(3072) NOT NULL,\n  mots_cles tsvector GENERATED ALWAYS AS (\n    setweight(to_tsvector(\'french\', coalesce(metadata->>\'section\', \'\')), \'A\') ||\n    setweight(to_tsvector(\'french\', chunk), \'B\')\n  ) STORED,\n  cree_le timestamptz NOT NULL DEFAULT now(),\n  maj_le timestamptz NOT NULL DEFAULT now()\n);\nCREATE INDEX IF NOT EXISTS rag_piketty_v2_chunks_mots_cles_idx ON rag_piketty_v2_chunks USING GIN (mots_cles);', options: {} }, credentials: { postgres: newCredential('Supabase Postgres', 'CREDENTIAL_ID') }, position: [864, 0], notes: 'Crée rag_piketty_v2_chunks si besoin (id, chunk, metadata, embedding, mots_cles calculée par Postgres). Ne supprime rien.', notesInFlow: true, executeOnce: true }
+});
+
+const reprendre_Chunks = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: { name: 'Reprendre Chunks', parameters: { jsCode: 'return $(\'Limit Test\').all();' }, position: [1088, 0], notes: 'Récupère les chunks (Postgres ne renvoie que le résultat de sa requête).', notesInFlow: true }
+});
+
+const executer_Sous_Workflow = node({
+  type: 'n8n-nodes-base.executeWorkflow',
+  version: 1.4,
+  config: { name: 'Executer Sous Workflow', parameters: { workflowId: { __rl: true, mode: 'id', value: expr('{{ $workflow.id }}') }, workflowInputs: { mappingMode: 'defineBelow', value: { chunk_id: expr('{{ $json.chunk_id }}'), text: expr('{{ $json.text }}'), page: expr('{{ $json.page }}'), section: expr('{{ $json.section }}'), chapitre: expr('{{ $json.chapitre }}'), partie: expr('{{ $json.partie }}'), titre: expr('{{ $json.titre }}'), ordre: expr('{{ $json.ordre }}') }, matchingColumns: [], schema: [{ id: 'chunk_id', displayName: 'chunk_id', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'text', displayName: 'text', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'page', displayName: 'page', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'section', displayName: 'section', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'chapitre', displayName: 'chapitre', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'partie', displayName: 'partie', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'titre', displayName: 'titre', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'string', removed: false }, { id: 'ordre', displayName: 'ordre', required: false, defaultMatch: false, display: true, canBeUsedToMatch: true, type: 'number', removed: false }], attemptToConvertTypes: false, convertFieldsToString: false }, mode: 'each', options: { waitForSubWorkflow: true } }, position: [1312, 0], notes: 'Un appel du sous-workflow par chunk, l\'un après l\'autre.', notesInFlow: true }
+});
+
+const purger_Chunks_Perimes = node({
+  type: 'n8n-nodes-base.postgres',
+  version: 2.7,
+  config: { name: 'Purger Chunks Perimes', parameters: { operation: 'executeQuery', query: 'DELETE FROM rag_piketty_v2_chunks WHERE (metadata->>\'ordre\')::int > $1 RETURNING id;', options: { queryReplacement: expr('{{ [ $(\'Decouper Chunks\').all().length ] }}') } }, credentials: { postgres: newCredential('Supabase Postgres', 'CREDENTIAL_ID') }, position: [1680, 0], notes: 'Supprime les lignes dont ordre dépasse le nombre total de chunks du livre (chunks d\'un ancien découpage). Sans effet avec Limit = 1.', notesInFlow: true, executeOnce: true, alwaysOutputData: true }
+});
+
+const chunking_Trigger = trigger({
+  type: 'n8n-nodes-base.executeWorkflowTrigger',
+  version: 1.2,
+  config: { name: 'Chunking Trigger', parameters: { workflowInputs: { values: [{ name: 'chunk_id' }, { name: 'text' }, { name: 'page' }, { name: 'section' }, { name: 'chapitre' }, { name: 'partie' }, { name: 'titre' }, { name: 'ordre', type: 'number' }] } }, position: [704, 224], notes: 'Reçoit un chunk : chunk_id, text et métadonnées.', notesInFlow: true }
+});
+
+const embedding = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.5,
+  config: { name: 'Embedding', parameters: { method: 'POST', url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent', authentication: 'predefinedCredentialType', nodeCredentialType: 'googlePalmApi', sendBody: true, specifyBody: 'json', jsonBody: expr('{{ JSON.stringify({ model: \'models/gemini-embedding-2\', content: { parts: [{ text: $json.text }] }, taskType: \'RETRIEVAL_DOCUMENT\' }) }}'), options: {} }, credentials: { googlePalmApi: newCredential('Troov CS autom (compte)', 'CREDENTIAL_ID') }, position: [928, 224], notes: 'Vecteur Gemini (gemini-embedding-2, RETRIEVAL_DOCUMENT, 3072 dimensions).', notesInFlow: true, retryOnFail: true, maxTries: 3, waitBetweenTries: 5000 }
+});
+
+const enregistrer_Chunk = node({
+  type: 'n8n-nodes-base.postgres',
+  version: 2.7,
+  config: { name: 'Enregistrer Chunk', parameters: { operation: 'executeQuery', query: 'INSERT INTO rag_piketty_v2_chunks (id, chunk, metadata, embedding)\nVALUES ($1, $2, $3::jsonb, $4::vector)\nON CONFLICT (id) DO UPDATE SET chunk = EXCLUDED.chunk, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding, maj_le = now()\nRETURNING id, vector_dims(embedding) AS dims, length(mots_cles::text) > 0 AS mots_cles_ok, cree_le, maj_le;', options: { queryReplacement: expr('{{ [ $(\'Chunking Trigger\').item.json.chunk_id, $(\'Chunking Trigger\').item.json.text, JSON.stringify({ page: $(\'Chunking Trigger\').item.json.page, section: $(\'Chunking Trigger\').item.json.section, chapitre: $(\'Chunking Trigger\').item.json.chapitre, partie: $(\'Chunking Trigger\').item.json.partie, titre: $(\'Chunking Trigger\').item.json.titre, ordre: $(\'Chunking Trigger\').item.json.ordre }), \'[\' + $json.embedding.values.join(\',\') + \']\' ] }}') } }, credentials: { postgres: newCredential('Supabase Postgres', 'CREDENTIAL_ID') }, position: [1152, 224], notes: 'Upsert du chunk et de son vecteur (paramètres de requête). Les mots-clés sont calculés par Postgres.', notesInFlow: true }
+});
+
+const pause_Quota = node({
+  type: 'n8n-nodes-base.wait',
+  version: 1.1,
+  config: { name: 'Pause Quota', parameters: { amount: expr('{{ Math.max(1, Math.ceil($(\'Chunking Trigger\').item.json.text.length / 1600)) }}') }, position: [1344, 224], webhookId: '00000000-0000-0000-0000-000000000000', notes: 'Niveau gratuit Gemini (~150 000 car./min mesurés) : 1 s pour 1 600 caractères. À retirer si la facturation est activée.', notesInFlow: true }
+});
+
+const pOST_rag_piketty_v2_ask = trigger({
+  type: 'n8n-nodes-base.webhook',
+  version: 2.1,
+  config: { name: 'POST /rag-piketty-v2-ask', parameters: { httpMethod: 'POST', path: 'rag-piketty-v2-ask', responseMode: 'lastNode', options: { allowedOrigins: '*' } }, position: [480, 1280], webhookId: 'rag-piketty-v2-ask', notes: 'POST { sessionId, chatInput } → { output }', notesInFlow: true }
+});
+
+const agent_RAG = node({
+  type: '@n8n/n8n-nodes-langchain.agent',
+  version: 3.1,
+  config: { name: 'Agent RAG', parameters: { promptType: 'define', text: expr('{{ $json.body.chatInput }}'), options: { systemMessage: '<role>\nTu es un assistant spécialiste du livre « Le Capital au XXIe siècle » de Thomas Piketty (publié en 2013). Tu réponds en français, uniquement à partir du texte du livre.\n</role>\n\n<goal>\nRépondre de façon exacte et sourcée aux questions sur le livre, en t\'appuyant exclusivement sur les extraits renvoyés par l\'outil « Recherche Livre ».\n</goal>\n\n<method>\n1. Sélection : si le message est une salutation ou une simple formule de politesse, réponds brièvement sans chercher. Pour toute autre question, utilise l\'outil « Recherche Livre ».\n2. Recherche : reformule la question en une requête de recherche courte et précise, avec les mots-clés que le livre emploierait (ex. « concentration du patrimoine France », « part du revenu des 50 % les plus pauvres »). Pour une question large, fais 2 ou 3 recherches sur des angles différents.\n3. Génération : réponds UNIQUEMENT à partir des extraits renvoyés par l\'outil. N\'utilise jamais tes connaissances générales.\n</method>\n\n<citations>\n- Appuie chaque affirmation sur un court extrait exact du livre entre guillemets français, suivi immédiatement des pages entre parenthèses, tirées du champ « page » des métadonnées. Exemple : Piketty montre que « les patrimoines issus du passé se recapitalisent plus vite que le rythme de progression de la production » (p. 63-64).\n- Le numéro de page est UNIQUEMENT la valeur du champ « page » des métadonnées, par exemple 525-526. N\'utilise jamais le champ « id » (une suite de lettres, de chiffres et de tirets) comme numéro de page.\n- N\'invente jamais un numéro de page ni une citation.\n</citations>\n\n<special_cases>\n- Si les extraits ne contiennent pas la réponse, réponds exactement : « Je ne trouve pas cette information dans le livre. » Ne confirme ni n\'infirme rien d\'autre.\n- Si la question porte sur « aujourd\'hui » ou l\'actualité, réponds à partir du livre et précise que le livre date de 2013 et ne couvre pas la situation actuelle.\n</special_cases>\n\n<output_format>\n- Markdown simple : paragraphes courts, listes à puces, gras pour les notions clés.\n- N\'utilise jamais de LaTeX ni de symbole $ (pas de $r > g$) : écris les formules en texte simple, par exemple r > g.\n- Ne mentionne jamais l\'outil de recherche, la base de données, les « extraits fournis » ni le fonctionnement interne : réponds comme quelqu\'un qui cite directement le livre.\n</output_format>', maxIterations: 6 } }, position: [784, 1552], notes: 'Même agent, même prompt et même modèle que la V1.', notesInFlow: true, subnodes: { model: modele_Gemini, memory: memoire_Chat, tools: [recherche_Livre] } }
+});
+
+const wf = workflow('OPoQNIxiv0oIkd4o', 'RAG Piketty V2', { description: 'RAG V2 sur « Le Capital au XXIe siècle » : 1 chunk = 1 section de la table des matières, un sous-workflow par chunk. Comparé à la V1 via la page /webhook/rag-piketty-v2.', executionOrder: 'v1', availableInMCP: true, binaryMode: 'separate', errorWorkflow: 'qxiolQ3TqUKnBt4v' });
+
+export default wf
+  .add(formulaire_Livre)
+  .to(extraire_Texte_PDF)
+  .to(decouper_Chunks)
+  .to(limit_Test)
+  .to(creer_Table)
+  .to(reprendre_Chunks)
+  .to(executer_Sous_Workflow)
+  .to(purger_Chunks_Perimes)
+  .add(chunking_Trigger)
+  .to(embedding)
+  .to(enregistrer_Chunk)
+  .to(pause_Quota)
+  .add(pOST_rag_piketty_v2_ask)
+  .to(agent_RAG)
