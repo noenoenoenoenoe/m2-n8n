@@ -6,7 +6,7 @@ Projet de M2 construit avec **n8n** : un **RAG** sur *Le Capital au XXIe siècle
 
 | Dossier | Contenu |
 |---|---|
-| [`rag-piketty/`](rag-piketty/) | **Le RAG** : 5 workflows, l'interface web, 5 specs |
+| [`rag-piketty/`](rag-piketty/) | **Le RAG** : 4 workflows (+ 1 archivé), l'interface web, 5 specs |
 | [`tri-mails-support/`](tri-mails-support/) | Tri et notification des mails support (IA + Slack) |
 | [`skills/`](skills/) | Skills `interview`, `doubt-driven-dev`, `hostile-review` |
 | [`docs/journal-de-bord.md`](docs/journal-de-bord.md) | Surprises et décisions, au fil de la construction |
@@ -93,7 +93,8 @@ Détails, mesures et causes : [journal de bord](docs/journal-de-bord.md) et [spe
 ```
 rag-piketty/
 ├── specs/       1-rag-v1 · 2-interface · 3-ameliorations · 4-v2-un-chunk-par-section · 5-v3-reponse-en-5-etapes
-├── workflows/   v1-ingestion-et-chat · v1-page · v2-ingestion · v3-reponse · page-comparaison
+├── workflows/   v1-ingestion-et-reponse · v2-ingestion-et-reponse · v3-reponse · page-comparaison
+│                archive/ : v1-page (ancienne page V1, remplacée par la page de comparaison)
 └── interface/   page du RAG, page de comparaison V1 / V2 / V3, build.py (injecte la page dans le workflow)
 ```
 
@@ -152,8 +153,8 @@ Les fichiers publiés ici sont une **copie anonymisée** de l'espace de travail.
 
 Pour relancer le RAG :
 1. Créer dans n8n un credential **Google Gemini (PaLM) API** et un credential **Postgres** vers Supabase (pooler de connexion), puis remplacer les `CREDENTIAL_ID`.
-2. Importer `v2-ingestion` et `v3-reponse`, puis `page-comparaison` (et `v1-*` pour comparer avec la V1).
-3. Dans `v2-ingestion`, laisser `Limit Test` à 1, envoyer le PDF par le formulaire et vérifier la ligne créée dans `rag_piketty_v2_chunks`. Passer ensuite à 1000 pour tout le livre (~25 min en niveau gratuit).
+2. Importer `v2-ingestion-et-reponse` et `v3-reponse`, puis `page-comparaison` (et `v1-ingestion-et-reponse` pour comparer avec la V1).
+3. Dans `v2-ingestion-et-reponse`, laisser `Limit Test` à 1, envoyer le PDF par le formulaire et vérifier la ligne créée dans `rag_piketty_v2_chunks`. Passer ensuite à 1000 pour tout le livre (~25 min en niveau gratuit).
 4. Ouvrir `GET /webhook/rag-piketty-v2` : c'est la page de comparaison.
 
 Pour modifier l'interface : éditer le HTML dans `rag-piketty/interface/`. `build.py` l'injecte dans le nœud qui sert la page. Il est écrit pour l'arborescence de l'espace de travail (`interface/` et `n8n/workflows/` côte à côte) : adapter les chemins avant de l'utiliser ici, ou coller le HTML à la main dans le nœud « Servir Page ».
